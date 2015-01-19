@@ -4,31 +4,25 @@ using namespace std;
 
 bool debug = true;
 
-const short int blockSize = 8;
-const short int keySize = 10;
-const short int subKeySize = blockSize;
-const short int sBlockSize = blockSize / 2;
-
-const short int sBlock0[sBlockSize * sBlockSize] = {
+const short int sBlock0[4 * 4] = {
 	1, 0, 3, 2,
 	3, 2, 1, 0,
 	0, 2, 1, 3,
 	3, 1, 3, 2
 };
 
-const short int sBlock1[sBlockSize * sBlockSize] = {
+const short int sBlock1[4 * 4] = {
 	0, 1, 2, 3,
 	2, 0, 1, 3,
 	3, 0, 1, 0,
 	2, 1, 0, 3
 };
 
-short int inputBlock[blockSize] = { 1, 0, 1, 0, 0, 1, 0, 1 };
-short int key[keySize] = { 0, 0, 1, 0, 0, 1, 0, 1, 1, 1 };
+short int inputBlock[8] = { 0 }; // blockSize = 8
+short int key[10] = { 0, 0, 1, 0, 0, 1, 0, 1, 1, 1 }; // keySize = 10
 
-
-short int subKeyK1[subKeySize] = { 0 };
-short int subKeyK2[subKeySize] = { 0 };
+short int subKeyK1[8] = { 0 };
+short int subKeyK2[8] = { 0 };
 
 
 void printBlock(short int * block, short int len);
@@ -39,7 +33,10 @@ void permuteSubKeyP8(short int * inBlock, short int * outBlock);
 void shift1(short int * k);
 void shift2(short int * k);
 void shiftSW(short int * block);
+short int binToDec(short int bin1, short int bin2);
 void generateSubKeys(short int * key, short int * subKeyK1, short int * subKeyK2);
+void functionF(short int * block, short int * subKey);
+char sDesCrypt(char plainChar, short int * key);
 
 
 void printBlock(short int * block, short int len)
@@ -55,8 +52,8 @@ void permuteIP(short int * block)
 {
 	// IP = [ 2 6 3 1 4 8 5 7 ]
 	// IP = [ 1 5 2 0 3 7 4 6 ] -> indexes starts from 0
-	short int tmp[blockSize];
-	memcpy(tmp, block, sizeof(short int) * blockSize);
+	short int tmp[8];
+	memcpy(tmp, block, sizeof(short int) * 8);
 
 	block[0] = tmp[1];
 	block[1] = tmp[5];
@@ -72,8 +69,8 @@ void permuteReIP(short int * block)
 {
 	// IP^-1 = [ 4 1 3 5 7 2 8 6 ]
 	// IP^-1 = [ 3 0 2 4 6 1 7 5 ] -> indexes starts from 0
-	short int tmp[blockSize];
-	memcpy(tmp, block, sizeof(short int) * blockSize);
+	short int tmp[8];
+	memcpy(tmp, block, sizeof(short int) * 8);
 
 	block[0] = tmp[3];
 	block[1] = tmp[0];
@@ -91,8 +88,8 @@ void permuteKeyP10(short int * key)
 	// block size = 10 elements!
 	// P10 = [ 3 5 2 7 4 10 1 9 8 6 ]
 	// P10 = [ 2 4 1 6 3 9 0 8 7 5 ] -> indexes starts from 0
-	short int tmp[keySize];
-	memcpy(tmp, key, sizeof(short int) * keySize);
+	short int tmp[10];
+	memcpy(tmp, key, sizeof(short int) * 10);
 
 	key[0] = tmp[2];
 	key[1] = tmp[4];
@@ -128,8 +125,8 @@ void shift1(short int * k)
 {
 	// input =	[ 0 1 2 3 4 5 6 7 8 9 ]
 	// output = [ 1 2 3 4 0 6 7 8 9 5 ]
-	short int tmp[keySize];
-	memcpy(tmp, k, sizeof(short int) * keySize);
+	short int tmp[10];
+	memcpy(tmp, k, sizeof(short int) * 10);
 
 	k[0] = tmp[1];
 	k[1] = tmp[2];
@@ -148,8 +145,8 @@ void shift2(short int * k)
 {
 	// input =	[ 0 1 2 3 4 5 6 7 8 9 ]
 	// output = [ 2 3 4 0 1 7 8 9 5 6 ]
-	short int tmp[keySize];
-	memcpy(tmp, k, sizeof(short int) * keySize);
+	short int tmp[10];
+	memcpy(tmp, k, sizeof(short int) * 10);
 
 	k[0] = tmp[2];
 	k[1] = tmp[3];
@@ -183,8 +180,25 @@ void shiftSW(short int * block)
 }
 
 
-
-
+short int binToDec(short int bin1, short int bin2)
+{	
+	if (bin1 == 0 && bin2 == 1)
+	{
+		return 1;
+	}
+	else if (bin1 == 1 && bin2 == 0)
+	{
+		return 2;
+	}
+	else if (bin1 == 1 && bin2 == 1)
+	{
+		return 3;
+	}
+	else // bin1 == 0 && bin2 == 0
+	{
+		return 0;
+	}
+}
 
 
 
@@ -205,28 +219,68 @@ void generateSubKeys(short int * key, short int * subKeyK1, short int * subKeyK2
 }
 
 
+void functionF(short int * block, short int * subKey)
+{
+	// split input block L / R
+	short int blockLeft[4] = { block[0], block[1], block[2], block[3] };
+	short int blockRight[4] = { block[4], block[5], block[6], block[7] };
+
+	// 4 -> 8-bit block extension (Extending Permutation E)
+	short int blockExt[8] = { blockRight[3], blockRight[0], blockRight[1], blockRight[2], blockRight[1], blockRight[2], blockRight[3], blockRight[0] };
+
+	// blockExt XOR subKey
+	for (int i = 0; i < 8; ++i)
+	{
+		blockExt[i] = blockExt[i] ^ subKey[i];
+	}
+
+	// S-Block S0 transformation
+	short int numS0 = sBlock0[binToDec(blockExt[0], blockExt[3]) * 4 + binToDec(blockExt[1], blockExt[2])]; // row * widh + column
+	short int numS1 = sBlock1[binToDec(blockExt[4], blockExt[7]) * 4 + binToDec(blockExt[5], blockExt[6])]; // row * widh + column
+	cout << "num S0:" << numS0 << endl;
+	cout << "num S1:" << numS1 << endl;
 
 
-int main(int argc, char* argv[])
-{	
+
+
+
+
+
+
+	
+}
+
+
+
+
+char sDesCrypt(char plainChar, short int * key)
+{
+	char cryptedChar = 'x';
+
+	// conversion from char to binary
+	for (int i = 7; i >= 0; --i)
+	{	
+		inputBlock[7 - i] = (short int)((plainChar & (1 << i)) ? 1 : 0);
+	}
+
 	if (debug)
 	{
 		cout << "Input block:\t";
-		printBlock(inputBlock, blockSize);
+		printBlock(inputBlock, 8);
 		cout << "Input key:\t";
-		printBlock(key, keySize);
+		printBlock(key, 10);
 		cout << endl;
 	}
-	
+
 	// generate subKeys:	
 	generateSubKeys(key, subKeyK1, subKeyK2);
 
 	if (debug)
 	{
 		cout << "subKey1:\t";
-		printBlock(subKeyK1, subKeySize);
+		printBlock(subKeyK1, 8);
 		cout << "subKey2:\t";
-		printBlock(subKeyK2, subKeySize);
+		printBlock(subKeyK2, 8);
 		cout << endl;
 	}
 
@@ -236,8 +290,41 @@ int main(int argc, char* argv[])
 	if (debug)
 	{
 		cout << "IP block:\t";
-		printBlock(inputBlock, blockSize);
+		printBlock(inputBlock, 8);
 	}
+
+	// FunctionF with subKeyK1
+	functionF(inputBlock, subKeyK1);
+
+
+
+
+
+
+	return cryptedChar;
+
+}
+
+
+
+
+
+
+
+
+int main(int argc, char* argv[])
+{	
+	char plainSample = 165;
+	char cryptedSample = '?';	
+	
+	cout << "Encryption of char: " << plainSample << endl;
+	
+	cryptedSample = sDesCrypt(plainSample, key);
+
+	cout << "Encrypted char: " << cryptedSample << endl;
+
+	
+
 	
 
 	system("PAUSE");
