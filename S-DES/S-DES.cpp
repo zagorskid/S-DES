@@ -24,7 +24,7 @@ short int key[10] = { 0, 0, 1, 0, 0, 1, 0, 1, 1, 1 }; // keySize = 10
 short int subKeyK1[8] = { 0 };
 short int subKeyK2[8] = { 0 };
 
-
+// function declaration
 void printBlock(short int * block, short int len);
 void permuteIP(short int * block);
 void permuteReIP(short int * block);
@@ -37,6 +37,7 @@ short int binToDec(short int bin1, short int bin2);
 void generateSubKeys(short int * key, short int * subKeyK1, short int * subKeyK2);
 void functionF(short int * block, short int * subKey);
 char sDesCrypt(char plainChar, short int * key);
+char sDesDecrypt(char cryptedChar, short int * key);
 
 
 void printBlock(short int * block, short int len)
@@ -201,21 +202,23 @@ short int binToDec(short int bin1, short int bin2)
 }
 
 
-
 void generateSubKeys(short int * key, short int * subKeyK1, short int * subKeyK2)
 {
+	short int tmpKey[10];
+	memcpy(tmpKey, key, sizeof(short int) * 10);
+
 	// permutation
-	permuteKeyP10(key);
+	permuteKeyP10(tmpKey);
 
 	// shifts (applied for both subKeys):
-	shift1(key);
+	shift1(tmpKey);
 
 	// get final subKey1
-	permuteSubKeyP8(key, subKeyK1);
+	permuteSubKeyP8(tmpKey, subKeyK1);
 
 	// generate subKey2
-	shift2(key);
-	permuteSubKeyP8(key, subKeyK2);
+	shift2(tmpKey);
+	permuteSubKeyP8(tmpKey, subKeyK2);
 }
 
 
@@ -237,26 +240,77 @@ void functionF(short int * block, short int * subKey)
 	// S-Block S0 transformation
 	short int numS0 = sBlock0[binToDec(blockExt[0], blockExt[3]) * 4 + binToDec(blockExt[1], blockExt[2])]; // row * widh + column
 	short int numS1 = sBlock1[binToDec(blockExt[4], blockExt[7]) * 4 + binToDec(blockExt[5], blockExt[6])]; // row * widh + column
-	cout << "num S0:" << numS0 << endl;
-	cout << "num S1:" << numS1 << endl;
 
+	// block P4 -> stored in subKey array
+	// P4 permutation: [ 1 3 2 0 ]
+	// L-part:
+	if (numS0 == 0)
+	{
+		subKey[3] = 0; // subKey[0] before permutation P4
+		subKey[0] = 0; // subKey[1] before permutation P4
+	}
+	else if (numS0 == 1)
+	{
+		subKey[3] = 0; // subKey[0] before permutation P4
+		subKey[0] = 1; // subKey[1] before permutation P4
+	}
+	else if (numS0 == 2)
+	{
+		subKey[3] = 1; // subKey[0] before permutation P4
+		subKey[0] = 0; // subKey[1] before permutation P4
+	}
+	else
+	{
+		subKey[3] = 1; // subKey[0] before permutation P4
+		subKey[0] = 1; // subKey[1] before permutation P4
+	}
 
+	// R-part:
+	if (numS1 == 0)
+	{
+		subKey[2] = 0; // subKey[2] before permutation P4
+		subKey[1] = 0; // subKey[3] before permutation P4
+	}
+	else if (numS1 == 1)
+	{
+		subKey[2] = 0; // subKey[2] before permutation P4
+		subKey[1] = 1; // subKey[3] before permutation P4
+	}
+	else if (numS1 == 2)
+	{
+		subKey[2] = 1; // subKey[2] before permutation P4
+		subKey[1] = 0; // subKey[3] before permutation P4
+	}
+	else
+	{
+		subKey[2] = 1; // subKey[2] before permutation P4
+		subKey[1] = 1; // subKey[3] before permutation P4
+	}
 
+	// blockLeft XOR block P4 (stored in subKey)
+	for (int i = 0; i < 4; ++i)
+	{
+		block[i] = blockLeft[i] ^ subKey[i];
+	}
 
+	// final block -> stored in block array
+	// block[0] : block[3] -> blockLeft XOR block P4
+	// block[4] : block[7] -> blockRight
+	block[4] = blockRight[0];
+	block[5] = blockRight[1];
+	block[6] = blockRight[2];
+	block[7] = blockRight[3];
 
-
-
-
-	
+	if (debug)
+	{
+		cout << "functionFk:\t";
+		printBlock(block, 8);
+	}	
 }
-
-
 
 
 char sDesCrypt(char plainChar, short int * key)
 {
-	char cryptedChar = 'x';
-
 	// conversion from char to binary
 	for (int i = 7; i >= 0; --i)
 	{	
@@ -296,39 +350,130 @@ char sDesCrypt(char plainChar, short int * key)
 	// FunctionF with subKeyK1
 	functionF(inputBlock, subKeyK1);
 
+	// SW
+	shiftSW(inputBlock);
 
+	if (debug)
+	{
+		cout << "SW block:\t";
+		printBlock(inputBlock, 8);
+	}
 
+	// FunctionF with subKeyK2
+	functionF(inputBlock, subKeyK2);
 
+	// permutation ReIP of inputBlock
+	permuteReIP(inputBlock);
 
+	if (debug)
+	{
+		cout << "final block:\t";
+		printBlock(inputBlock, 8);
+	}
 
-	return cryptedChar;
-
+	// conversion from binary to char
+	short int outputVal = 0;
+	short int factor = 128;
+	for (int i = 0; i < 8; ++i)
+	{
+		outputVal += (factor * inputBlock[i]);
+		factor = factor >> 1;		
+	}
+	
+	return (char)outputVal;
 }
 
 
+char sDesDecrypt(char cryptedChar, short int * key)
+{
+	// conversion from char to binary
+	for (int i = 7; i >= 0; --i)
+	{
+		inputBlock[7 - i] = (short int)((cryptedChar & (1 << i)) ? 1 : 0);
+	}
 
+	if (debug)
+	{
+		cout << "Input block:\t";
+		printBlock(inputBlock, 8);
+		cout << "Input key:\t";
+		printBlock(key, 10);
+		cout << endl;
+	}
 
+	// generate subKeys:	
+	generateSubKeys(key, subKeyK1, subKeyK2);
 
+	if (debug)
+	{
+		cout << "subKey1:\t";
+		printBlock(subKeyK1, 8);
+		cout << "subKey2:\t";
+		printBlock(subKeyK2, 8);
+		cout << endl;
+	}
 
+	// permutation IP of inputBlock
+	permuteIP(inputBlock);
+
+	if (debug)
+	{
+		cout << "IP block:\t";
+		printBlock(inputBlock, 8);
+	}
+
+	// FunctionF with subKeyK2
+	functionF(inputBlock, subKeyK2);
+
+	// SW
+	shiftSW(inputBlock);
+
+	if (debug)
+	{
+		cout << "SW block:\t";
+		printBlock(inputBlock, 8);
+	}
+
+	// FunctionF with subKeyK1
+	functionF(inputBlock, subKeyK1);
+
+	// permutation ReIP of inputBlock
+	permuteReIP(inputBlock);
+
+	if (debug)
+	{
+		cout << "final block:\t";
+		printBlock(inputBlock, 8);
+	}
+
+	// conversion from binary to char
+	short int outputVal = 0;
+	short int factor = 128;
+	for (int i = 0; i < 8; ++i)
+	{
+		outputVal += (factor * inputBlock[i]);
+		factor = factor >> 1;
+	}
+
+	return (char)outputVal;
+}
 
 
 int main(int argc, char* argv[])
 {	
 	char plainSample = 165;
-	char cryptedSample = '?';	
+	char cryptedSample;
+	char decryptedSample;
 	
-	cout << "Encryption of char: " << plainSample << endl;
-	
+	cout << "Input char:\t" << plainSample << endl;	
 	cryptedSample = sDesCrypt(plainSample, key);
+	cout << "Encrypted char:\t" << cryptedSample << endl;
 
-	cout << "Encrypted char: " << cryptedSample << endl;
-
-	
-
-	
+	cout << "\n=====> Decryption:" << endl;
+	decryptedSample = sDesDecrypt(cryptedSample, key);
+	cout << "Decrypted char:\t" << decryptedSample << endl;	
 
 	system("PAUSE");
-
 
 	return 0;
 }
