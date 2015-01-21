@@ -1,4 +1,9 @@
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <ctime>
+#include <algorithm>
+#include <iterator>
 
 using namespace std;
 
@@ -23,6 +28,7 @@ short int key[10] = { 0, 0, 1, 0, 0, 1, 0, 1, 1, 1 }; // keySize = 10
 
 short int subKeyK1[8] = { 0 };
 short int subKeyK2[8] = { 0 };
+bool subKeysGenerated = false;
 
 // function declaration
 void printBlock(short int * block, short int len);
@@ -219,6 +225,8 @@ void generateSubKeys(short int * key, short int * subKeyK1, short int * subKeyK2
 	// generate subKey2
 	shift2(tmpKey);
 	permuteSubKeyP8(tmpKey, subKeyK2);
+
+	subKeysGenerated = true;
 }
 
 
@@ -326,8 +334,11 @@ char sDesCrypt(char plainChar, short int * key)
 		cout << endl;
 	}
 
-	// generate subKeys:	
-	generateSubKeys(key, subKeyK1, subKeyK2);
+	// generate subKeys:
+	if (!subKeysGenerated)
+	{
+		generateSubKeys(key, subKeyK1, subKeyK2);
+	}	
 
 	if (debug)
 	{
@@ -461,6 +472,8 @@ char sDesDecrypt(char cryptedChar, short int * key)
 
 int main(int argc, char* argv[])
 {	
+	/*
+	// single char encryption / decryption:
 	char plainSample = 165;
 	char cryptedSample;
 	char decryptedSample;
@@ -472,8 +485,67 @@ int main(int argc, char* argv[])
 	cout << "\n=====> Decryption:" << endl;
 	decryptedSample = sDesDecrypt(cryptedSample, key);
 	cout << "Decrypted char:\t" << decryptedSample << endl;	
+	*/
+
+
+	// file-based encryption:
+	// load file into memory
+	string filename = "lipsum.txt";
+	clock_t begin_load = clock(); // time capture
+	
+	ifstream input;
+	unsigned __int64 fileLength = 0;
+	char * inputText;
+	char * outputText;
+	input.open(filename, ios::binary); // open input file
+
+	if (!input.is_open())
+	{		
+		cout << "Error opening file!" << endl;
+		return 1;
+	}	
+
+	input.seekg(0, input.end);			// go to the end
+	fileLength = input.tellg();			// report location (this is the length)		
+	input.seekg(0, input.beg);			// go back to the beginning
+	inputText = new char[fileLength];	// allocate memory for a buffer of appropriate dimension
+	input.read(inputText, fileLength);	// read the whole file into the buffer
+	input.close();						// close file handle
+	
+	cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+
+	clock_t begin_encryption = clock();  // time capture
+	// ENCRYPTION
+	outputText = new char[fileLength];
+	for (unsigned long long int i = 0; i < fileLength; ++i)
+	{
+		outputText[i] = sDesCrypt(inputText[i], key);
+	}
+
+	cout << "Text encrypted in\t" << double(clock() - begin_encryption) / CLOCKS_PER_SEC << " s" << endl;
+
+
+	clock_t begin_saving = clock();  // time capture
+	// Save to file
+	ofstream output;
+	output.open("encrypted_" + filename, ios::binary);
+	if (!output.is_open())
+	{
+		cout << "Error opening file to save results!" << endl;
+		return 1;
+	}
+	output.write(outputText, fileLength);
+	output.close();
+
+	cout << "File saved in\t\t" << double(clock() - begin_saving) / CLOCKS_PER_SEC << " s" << endl;
+
+
+
+	cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
 
 	system("PAUSE");
+
+	delete[] inputText;
 
 	return 0;
 }
