@@ -2,12 +2,19 @@
 #include <fstream>
 #include <string>
 #include <ctime>
-#include <algorithm>
-#include <iterator>
 
 using namespace std;
 
-bool debug = true;
+
+// config:
+bool debug = false; // highly NOT recommended for bigger files!
+short int key[10] = { 0, 0, 1, 0, 0, 1, 0, 1, 1, 1 }; // encryption key; keySize = 10
+bool crypt = true; // if true, plainFile will be crypted
+const string plainFilename = "lipsum-100mb.txt";
+bool decrypt = true; // if true, cryptedFile will be decrypted
+const string cryptedFilename = "encrypted_lipsum-100mb.txt";
+// config end
+
 
 const short int sBlock0[4 * 4] = {
 	1, 0, 3, 2,
@@ -24,7 +31,6 @@ const short int sBlock1[4 * 4] = {
 };
 
 short int inputBlock[8] = { 0 }; // blockSize = 8
-short int key[10] = { 0, 0, 1, 0, 0, 1, 0, 1, 1, 1 }; // keySize = 10
 
 short int subKeyK1[8] = { 0 };
 short int subKeyK2[8] = { 0 };
@@ -249,56 +255,57 @@ void functionF(short int * block, short int * subKey)
 	short int numS0 = sBlock0[binToDec(blockExt[0], blockExt[3]) * 4 + binToDec(blockExt[1], blockExt[2])]; // row * widh + column
 	short int numS1 = sBlock1[binToDec(blockExt[4], blockExt[7]) * 4 + binToDec(blockExt[5], blockExt[6])]; // row * widh + column
 
-	// block P4 -> stored in subKey array
+	// block P4 -> stored in tmpBlock array
+	short int tmpBlock[4] = { 0 };
 	// P4 permutation: [ 1 3 2 0 ]
 	// L-part:
 	if (numS0 == 0)
 	{
-		subKey[3] = 0; // subKey[0] before permutation P4
-		subKey[0] = 0; // subKey[1] before permutation P4
+		tmpBlock[3] = 0; // tmpBlock[0] before permutation P4
+		tmpBlock[0] = 0; // tmpBlock[1] before permutation P4
 	}
 	else if (numS0 == 1)
 	{
-		subKey[3] = 0; // subKey[0] before permutation P4
-		subKey[0] = 1; // subKey[1] before permutation P4
+		tmpBlock[3] = 0; // tmpBlock[0] before permutation P4
+		tmpBlock[0] = 1; // tmpBlock[1] before permutation P4
 	}
 	else if (numS0 == 2)
 	{
-		subKey[3] = 1; // subKey[0] before permutation P4
-		subKey[0] = 0; // subKey[1] before permutation P4
+		tmpBlock[3] = 1; // tmpBlock[0] before permutation P4
+		tmpBlock[0] = 0; // tmpBlock[1] before permutation P4
 	}
 	else
 	{
-		subKey[3] = 1; // subKey[0] before permutation P4
-		subKey[0] = 1; // subKey[1] before permutation P4
+		tmpBlock[3] = 1; // tmpBlock[0] before permutation P4
+		tmpBlock[0] = 1; // tmpBlock[1] before permutation P4
 	}
 
 	// R-part:
 	if (numS1 == 0)
 	{
-		subKey[2] = 0; // subKey[2] before permutation P4
-		subKey[1] = 0; // subKey[3] before permutation P4
+		tmpBlock[2] = 0; // tmpBlock[2] before permutation P4
+		tmpBlock[1] = 0; // tmpBlock[3] before permutation P4
 	}
 	else if (numS1 == 1)
 	{
-		subKey[2] = 0; // subKey[2] before permutation P4
-		subKey[1] = 1; // subKey[3] before permutation P4
+		tmpBlock[2] = 0; // tmpBlock[2] before permutation P4
+		tmpBlock[1] = 1; // tmpBlock[3] before permutation P4
 	}
 	else if (numS1 == 2)
 	{
-		subKey[2] = 1; // subKey[2] before permutation P4
-		subKey[1] = 0; // subKey[3] before permutation P4
+		tmpBlock[2] = 1; // tmpBlock[2] before permutation P4
+		tmpBlock[1] = 0; // tmpBlock[3] before permutation P4
 	}
 	else
 	{
-		subKey[2] = 1; // subKey[2] before permutation P4
-		subKey[1] = 1; // subKey[3] before permutation P4
+		tmpBlock[2] = 1; // tmpBlock[2] before permutation P4
+		tmpBlock[1] = 1; // tmpBlock[3] before permutation P4
 	}
 
-	// blockLeft XOR block P4 (stored in subKey)
+	// blockLeft XOR block P4 (stored in tmpBlock)
 	for (int i = 0; i < 4; ++i)
 	{
-		block[i] = blockLeft[i] ^ subKey[i];
+		block[i] = blockLeft[i] ^ tmpBlock[i];
 	}
 
 	// final block -> stored in block array
@@ -334,11 +341,13 @@ char sDesCrypt(char plainChar, short int * key)
 		cout << endl;
 	}
 
-	// generate subKeys:
+
 	if (!subKeysGenerated)
 	{
 		generateSubKeys(key, subKeyK1, subKeyK2);
 	}	
+
+	//generateSubKeys(key, subKeyK1, subKeyK2);
 
 	if (debug)
 	{
@@ -412,8 +421,11 @@ char sDesDecrypt(char cryptedChar, short int * key)
 		cout << endl;
 	}
 
-	// generate subKeys:	
-	generateSubKeys(key, subKeyK1, subKeyK2);
+	// generate subKeys:
+	if (!subKeysGenerated)
+	{
+		generateSubKeys(key, subKeyK1, subKeyK2);
+	}	
 
 	if (debug)
 	{
@@ -474,79 +486,140 @@ int main(int argc, char* argv[])
 {	
 	/*
 	// single char encryption / decryption:
-	char plainSample = 165;
+	char plainSample = 'L';
 	char cryptedSample;
 	char decryptedSample;
-	
-	cout << "Input char:\t" << plainSample << endl;	
+	cout << "Input char:\t" << plainSample << endl;
 	cryptedSample = sDesCrypt(plainSample, key);
 	cout << "Encrypted char:\t" << cryptedSample << endl;
-
 	cout << "\n=====> Decryption:" << endl;
 	decryptedSample = sDesDecrypt(cryptedSample, key);
-	cout << "Decrypted char:\t" << decryptedSample << endl;	
+	cout << "Decrypted char:\t" << decryptedSample << endl;
 	*/
 
-
-	// file-based encryption:
-	// load file into memory
-	string filename = "lipsum.txt";
-	clock_t begin_load = clock(); // time capture
 	
-	ifstream input;
-	unsigned __int64 fileLength = 0;
-	char * inputText;
-	char * outputText;
-	input.open(filename, ios::binary); // open input file
+	if (crypt)
+	{
+		// load file into memory
+		cout << "S-DES encryption of file: " << plainFilename << "." << endl;
 
-	if (!input.is_open())
-	{		
-		cout << "Error opening file!" << endl;
-		return 1;
+		clock_t begin_load = clock(); // time capture
+
+		ifstream input;
+		unsigned __int64 fileLength = 0;
+		char * inputText;
+		char * outputText;
+		input.open(plainFilename, ios::binary); // open input file
+		if (!input.is_open())
+		{
+			cout << "Error opening input file!" << endl;
+			return 1;
+		}
+		input.seekg(0, input.end);			// go to the end
+		fileLength = input.tellg();			// report location (this is the length)		
+		input.seekg(0, input.beg);			// go back to the beginning
+		inputText = new char[fileLength];	// allocate memory for a buffer of appropriate dimension
+		input.read(inputText, fileLength);	// read the whole file into the buffer
+		input.close();						// close file handle
+
+		cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+		cout << "File size: \t\t" << fileLength << " bytes." << endl;
+		
+		// ENCRYPTION
+		clock_t begin_encryption = clock();  // time capture		
+		outputText = new char[fileLength];
+		for (unsigned long long int i = 0; i < fileLength; ++i)
+		{
+			outputText[i] = sDesCrypt(inputText[i], key);
+		}
+		cout << "Text encrypted in\t" << double(clock() - begin_encryption) / CLOCKS_PER_SEC << " s" << endl;
+
+		// Save result to file
+		clock_t begin_saving = clock();  // time capture		
+		ofstream output;
+		output.open("encrypted_" + plainFilename, ios::binary);
+		if (!output.is_open())
+		{
+			cout << "Error opening file to save results!" << endl;
+			return 1;
+		}
+		output.write(outputText, fileLength);
+		output.close();
+		cout << "File saved in\t\t" << double(clock() - begin_saving) / CLOCKS_PER_SEC << " s" << endl;
+
+		// SUMMARY
+		cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;		
+
+		delete[] inputText;
+		delete[] outputText;
+		subKeysGenerated = false;
+	}
+
+	if (decrypt)
+	{
+		// load file into memory
+		cout << "S-DES decryption of file: " << cryptedFilename << "." << endl;
+
+		clock_t begin_load = clock(); // time capture
+
+		ifstream input;
+		unsigned __int64 fileLength = 0;
+		char * inputText;
+		char * outputText;
+		input.open(cryptedFilename, ios::binary); // open input file
+		if (!input.is_open())
+		{
+			cout << "Error opening input file!" << endl;
+			return 1;
+		}
+		input.seekg(0, input.end);			// go to the end
+		fileLength = input.tellg();			// report location (this is the length)		
+		input.seekg(0, input.beg);			// go back to the beginning
+		inputText = new char[fileLength];	// allocate memory for a buffer of appropriate dimension
+		input.read(inputText, fileLength);	// read the whole file into the buffer
+		input.close();						// close file handle
+
+		cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+		cout << "File size: \t\t" << fileLength << " bytes." << endl;
+
+		// ENCRYPTION
+		clock_t begin_encryption = clock();  // time capture		
+		outputText = new char[fileLength];
+		for (unsigned long long int i = 0; i < fileLength; ++i)
+		{
+			outputText[i] = sDesDecrypt(inputText[i], key);
+		}
+		cout << "Text decrypted in\t" << double(clock() - begin_encryption) / CLOCKS_PER_SEC << " s" << endl;
+
+		// Save result to file
+		clock_t begin_saving = clock();  // time capture		
+		ofstream output;
+		output.open("decrypted_" + cryptedFilename, ios::binary);
+		if (!output.is_open())
+		{
+			cout << "Error opening file to save results!" << endl;
+			return 1;
+		}
+		output.write(outputText, fileLength);
+		output.close();
+		cout << "File saved in\t\t" << double(clock() - begin_saving) / CLOCKS_PER_SEC << " s" << endl;
+
+		// SUMMARY
+		cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+
+		delete[] inputText;
+		delete[] outputText;
+		subKeysGenerated = false;
+	}
+
+	if (!crypt && !decrypt)
+	{
+		cout << "Hey, there's nothig to do!" << endl;
 	}	
 
-	input.seekg(0, input.end);			// go to the end
-	fileLength = input.tellg();			// report location (this is the length)		
-	input.seekg(0, input.beg);			// go back to the beginning
-	inputText = new char[fileLength];	// allocate memory for a buffer of appropriate dimension
-	input.read(inputText, fileLength);	// read the whole file into the buffer
-	input.close();						// close file handle
+
 	
-	cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
-
-	clock_t begin_encryption = clock();  // time capture
-	// ENCRYPTION
-	outputText = new char[fileLength];
-	for (unsigned long long int i = 0; i < fileLength; ++i)
-	{
-		outputText[i] = sDesCrypt(inputText[i], key);
-	}
-
-	cout << "Text encrypted in\t" << double(clock() - begin_encryption) / CLOCKS_PER_SEC << " s" << endl;
-
-
-	clock_t begin_saving = clock();  // time capture
-	// Save to file
-	ofstream output;
-	output.open("encrypted_" + filename, ios::binary);
-	if (!output.is_open())
-	{
-		cout << "Error opening file to save results!" << endl;
-		return 1;
-	}
-	output.write(outputText, fileLength);
-	output.close();
-
-	cout << "File saved in\t\t" << double(clock() - begin_saving) / CLOCKS_PER_SEC << " s" << endl;
-
-
-
-	cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
-
 	system("PAUSE");
-
-	delete[] inputText;
-
 	return 0;
 }
 
