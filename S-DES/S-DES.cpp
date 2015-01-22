@@ -341,13 +341,10 @@ char sDesCrypt(char plainChar, short int * key)
 		cout << endl;
 	}
 
-
 	if (!subKeysGenerated)
 	{
 		generateSubKeys(key, subKeyK1, subKeyK2);
 	}	
-
-	//generateSubKeys(key, subKeyK1, subKeyK2);
 
 	if (debug)
 	{
@@ -552,7 +549,6 @@ int main(int argc, char* argv[])
 
 		delete[] inputText;
 		delete[] outputText;
-		subKeysGenerated = false;
 	}
 
 	if (decrypt)
@@ -609,15 +605,12 @@ int main(int argc, char* argv[])
 
 		delete[] inputText;
 		delete[] outputText;
-		subKeysGenerated = false;
 	}
 
 	if (!crypt && !decrypt)
 	{
 		cout << "Hey, there's nothig to do!" << endl;
 	}	
-
-
 	
 	system("PAUSE");
 	return 0;
