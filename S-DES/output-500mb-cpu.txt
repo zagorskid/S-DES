@@ -1,0 +1,23 @@
+S-DES encryption of file: lipsum-500mb.txt.
+File loaded in          2.75 s
+File size:              525165036 bytes.
+Text encrypted in       74.641 s
+File saved in           1.047 s
+Total time elapsed:     78.438 s
+Press any key to continue . . .
+
+S-DES encryption of file: lipsum-500mb.txt.
+File loaded in          0.719 s
+File size:              525165036 bytes.
+Text encrypted in       77.437 s
+File saved in           1.11 s
+Total time elapsed:     79.266 s
+Press any key to continue . . .
+
+S-DES encryption of file: lipsum-500mb.txt.
+File loaded in          0.703 s
+File size:              525165036 bytes.
+Text encrypted in       74.641 s
+File saved in           1.094 s
+Total time elapsed:     76.453 s
+Press any key to continue . . .

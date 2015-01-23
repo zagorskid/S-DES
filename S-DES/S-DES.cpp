@@ -10,9 +10,9 @@ using namespace std;
 bool debug = false; // highly NOT recommended for bigger files!
 short int key[10] = { 0, 0, 1, 0, 0, 1, 0, 1, 1, 1 }; // encryption key; keySize = 10
 bool crypt = true; // if true, plainFile will be crypted
-const string plainFilename = "lipsum-100mb.txt";
-bool decrypt = true; // if true, cryptedFile will be decrypted
-const string cryptedFilename = "encrypted_lipsum-100mb.txt";
+const string plainFilename = "lipsum-500mb.txt";
+bool decrypt = false; // if true, cryptedFile will be decrypted
+const string cryptedFilename = "encrypted_test_cl.txt";
 // config end
 
 
